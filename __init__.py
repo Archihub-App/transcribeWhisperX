@@ -75,8 +75,11 @@ class ExtendedPluginClass(PluginClass):
             result = model.transcribe(audio)
 
             if body['diarize']:
-                diarize_segments = diarize_model(audio)
-                result = whisperx.assign_word_speakers(diarize_segments, result)
+                try:
+                    diarize_segments = diarize_model(audio)
+                    result = whisperx.assign_word_speakers(diarize_segments, result)
+                except:
+                    pass
 
                 current_speaker = result['segments'][0]['speaker']
                 text = current_speaker + ": " + result['segments'][0]['text']
