@@ -33,6 +33,7 @@ class ExtendedPluginClass(PluginClass):
                 return {'msg': 'No se especificó el tipo de contenido'}, 400
 
             task = self.bulk.delay(body, current_user)
+            self.add_task_to_user(task.id, 'transcribeWhisperX.bulk', current_user, 'msg')
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
