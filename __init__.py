@@ -73,7 +73,7 @@ class ExtendedPluginClass(PluginClass):
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
             audio = whisper.load_audio(file_path)
             result = model.transcribe(audio)
-
+# 
             if body['diarize']:
                 try:
                     diarize_segments = diarize_model(audio)
@@ -81,19 +81,25 @@ class ExtendedPluginClass(PluginClass):
                 except:
                     pass
 
-                current_speaker = result['segments'][0]['speaker']
+                if 'speaker' in result['segments'][0]:
+                    current_speaker = result['segments'][0]['speaker']
+                else:
+                    current_speaker = ''
                 text = current_speaker + ": " + result['segments'][0]['text']
 
                 for segment in result['segments']:
                     # si el segmento actual tiene el mismo speaker que el anterior
-                    if segment['speaker'] == current_speaker:
-                        # sumar el texto del segmento actual al anterior
-                        text += ' ' + segment['text']
+                    if 'speaker' in segment:
+                        if segment['speaker'] == current_speaker:
+                            # sumar el texto del segmento actual al anterior
+                            text += ' ' + segment['text']
+                        else:
+                            # si no, actualizar el speaker actual
+                            current_speaker = segment['speaker']
+                            # y agregar el nuevo texto
+                            text += '\n\n' + current_speaker + ": " + segment['text']
                     else:
-                        # si no, actualizar el speaker actual
-                        current_speaker = segment['speaker']
-                        # y agregar el nuevo texto
-                        text += '\n\n' + current_speaker + ": " + segment['text']
+                        text += ' ' + segment['text']
 
                 result['text'] = text.replace('SPEAKER_', 'PERSONA_')
 
