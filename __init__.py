@@ -34,6 +34,9 @@ class ExtendedPluginClass(PluginClass):
 
             if 'post_type' not in body:
                 return {'msg': 'No se especificó el tipo de contenido'}, 400
+            
+            if not self.has_role('admin', current_user) and not self.has_role('processing', current_user):
+                return {'msg': 'No tiene permisos suficientes'}, 401
 
             task = self.bulk.delay(body, current_user)
             self.add_task_to_user(task.id, 'transcribeWhisperX.bulk', current_user, 'msg')
@@ -118,10 +121,9 @@ class ExtendedPluginClass(PluginClass):
             update = RecordUpdate(**update)
             mongodb.update_record('records', {'_id': r['_id']}, update)
 
-            update_cache_records()
-            update_cache_resources()
-
-        return 'ok'
+        update_cache_records()
+        update_cache_resources()
+        return 'Transcripción automática finalizada'
         
     
 plugin_info = {
