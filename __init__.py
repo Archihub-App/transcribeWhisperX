@@ -5,6 +5,7 @@ from app.utils import DatabaseHandler
 from app.api.records.models import RecordUpdate
 from celery import shared_task
 import os
+from bson.objectid import ObjectId
 import whisper
 import whisperx
 from dotenv import load_dotenv
@@ -52,7 +53,7 @@ class ExtendedPluginClass(PluginClass):
 
         if 'parent' in body:
             if body['parent']:
-                filters['parents.id'] = body['parent']
+                filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}]}
         
         # obtenemos los recursos
         resources = list(mongodb.get_all_records('resources', filters, fields={'_id': 1}))
@@ -121,8 +122,8 @@ class ExtendedPluginClass(PluginClass):
             update = RecordUpdate(**update)
             mongodb.update_record('records', {'_id': r['_id']}, update)
 
-        update_cache_records()
-        update_cache_resources()
+        instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
+        instance.clear_cache()
         return 'Transcripción automática finalizada'
         
     
