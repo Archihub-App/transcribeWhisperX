@@ -11,6 +11,7 @@ import whisperx
 from dotenv import load_dotenv
 from app.api.resources.services import update_cache as update_cache_resources
 from app.api.records.services import update_cache as update_cache_records
+import re
 
 load_dotenv()
 
@@ -95,6 +96,11 @@ class ExtendedPluginClass(PluginClass):
                 text = current_speaker + ": " + result['segments'][0]['text']
 
                 for segment in result['segments']:
+                    segment_text = segment['text']
+                    pattern = r'\s*(transcribed by.*|subtitles by.*|by.*\.com|by.*\.org|http.*)$'
+                    if re.search(pattern, segment_text):
+                        segment_text = ''
+                        segment['text'] = segment_text
                     # si el segmento actual tiene el mismo speaker que el anterior
                     if 'speaker' in segment:
                         if segment['speaker'] == current_speaker:
@@ -107,6 +113,10 @@ class ExtendedPluginClass(PluginClass):
                             text += '\n\n' + current_speaker + ": " + segment['text']
                     else:
                         text += ' ' + segment['text']
+
+                    
+
+
 
                 result['text'] = text.replace('SPEAKER_', 'PERSONA_')
 
