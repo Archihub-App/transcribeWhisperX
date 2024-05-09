@@ -45,17 +45,20 @@ class ExtendedPluginClass(PluginClass):
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
-    @shared_task(ignore_result=False, name='transcribeWhisperX.bulk')
+    @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
 
         filters = {
             'post_type': body['post_type']
         }
 
-        if 'parent' in body:
-            if body['parent']:
-                filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}]}
+        if body['parent'] and len(body['resources']) == 0:
+            filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
         
+        if body['resources']:
+            if len(body['resources']) > 0:
+                filters = {'_id': {'$in': [ObjectId(resource) for resource in body['resources']]}, **filters}
+            
         # obtenemos los recursos
         resources = list(mongodb.get_all_records('resources', filters, fields={'_id': 1}))
         resources = [str(resource['_id']) for resource in resources]
@@ -97,7 +100,7 @@ class ExtendedPluginClass(PluginClass):
 
                 for segment in result['segments']:
                     segment_text = segment['text']
-                    pattern = r'\s*(transcribed by.*|subtitles by.*|by.*\.com|by.*\.org|http.*)$'
+                    pattern = r'\s*(transcribed by.*|subtitles by.*|by.*\.com|by.*\.org|http.*|.com*)$'
                     if re.search(pattern, segment_text):
                         segment_text = ''
                         segment['text'] = segment_text
@@ -113,10 +116,6 @@ class ExtendedPluginClass(PluginClass):
                             text += '\n\n' + current_speaker + ": " + segment['text']
                     else:
                         text += ' ' + segment['text']
-
-                    
-
-
 
                 result['text'] = text.replace('SPEAKER_', 'PERSONA_')
 
@@ -177,6 +176,23 @@ plugin_info = {
                     {'value': 'small', 'label': 'Pequeño'},
                     {'value': 'medium', 'label': 'Mediano'},
                     {'value': 'large', 'label': 'Grande'},
+                ],
+                'required': False,
+            },
+            {
+                'type': 'select',
+                'label': 'Idioma de la transcripción',
+                'id': 'language',
+                'default': 'auto',
+                'options': [
+                    {'value': 'auto', 'label': 'Automático'},
+                    {'value': 'es', 'label': 'Español'},
+                    {'value': 'en', 'label': 'Inglés'},
+                    {'value': 'fr', 'label': 'Francés'},
+                    {'value': 'de', 'label': 'Alemán'},
+                    {'value': 'it', 'label': 'Italiano'},
+                    {'value': 'pt', 'label': 'Portugués'},
+                    
                 ],
                 'required': False,
             }
