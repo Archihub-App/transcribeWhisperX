@@ -83,7 +83,10 @@ class ExtendedPluginClass(PluginClass):
         for r in records:
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
             audio = whisper.load_audio(file_path)
-            result = model.transcribe(audio)
+            if body['language'] == 'auto':
+                result = model.transcribe(audio)
+            else:
+                result = model.transcribe(audio, language=body['language'])
 # 
             if body['diarize']:
                 try:
