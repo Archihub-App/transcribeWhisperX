@@ -6,9 +6,6 @@ from app.api.records.models import RecordUpdate
 from celery import shared_task
 import os
 from bson.objectid import ObjectId
-import torch
-import whisper
-import whisperx
 from dotenv import load_dotenv
 from app.api.resources.services import update_cache as update_cache_resources
 from app.api.records.services import update_cache as update_cache_records
@@ -20,7 +17,6 @@ mongodb = DatabaseHandler.DatabaseHandler()
 WEB_FILES_PATH = os.environ.get('WEB_FILES_PATH', '')
 ORIGINAL_FILES_PATH = os.environ.get('ORIGINAL_FILES_PATH', '')
 HF_TOKEN = os.environ.get('HF_TOKEN', '')
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 16
 compute_type='float32'
 
@@ -48,6 +44,8 @@ class ExtendedPluginClass(PluginClass):
         
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         filters = {
             'post_type': body['post_type']
@@ -77,8 +75,10 @@ class ExtendedPluginClass(PluginClass):
         records = list(mongodb.get_all_records('records', records_filters, fields={'_id': 1, 'mime': 1, 'filepath': 1, 'processing': 1}))
 
         if len(records) > 0:
+            import whisper
             model = whisper.load_model(body['model'], device=device)
             if body['diarize']:
+                import whisperx
                 diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
 
         for r in records:
