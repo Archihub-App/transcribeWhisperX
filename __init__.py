@@ -6,6 +6,7 @@ from app.api.records.models import RecordUpdate
 from celery import shared_task
 import os
 from bson.objectid import ObjectId
+import torch
 import whisper
 import whisperx
 from dotenv import load_dotenv
@@ -19,7 +20,7 @@ mongodb = DatabaseHandler.DatabaseHandler()
 WEB_FILES_PATH = os.environ.get('WEB_FILES_PATH', '')
 ORIGINAL_FILES_PATH = os.environ.get('ORIGINAL_FILES_PATH', '')
 HF_TOKEN = os.environ.get('HF_TOKEN', '')
-device = 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 16
 compute_type='float32'
 
