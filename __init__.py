@@ -7,8 +7,6 @@ from celery import shared_task
 import os
 from bson.objectid import ObjectId
 from dotenv import load_dotenv
-from app.api.resources.services import update_cache as update_cache_resources
-from app.api.records.services import update_cache as update_cache_records
 import re
 
 load_dotenv()
@@ -31,11 +29,8 @@ class ExtendedPluginClass(PluginClass):
             current_user = get_jwt_identity()
             body = request.get_json()
 
-            if 'post_type' not in body:
-                return {'msg': 'No se especificó el tipo de contenido'}, 400
-            
-            if not self.has_role('admin', current_user) and not self.has_role('processing', current_user):
-                return {'msg': 'No tiene permisos suficientes'}, 401
+            self.validate_fields(body, 'bulk')
+            self.validate_roles(current_user, ['admin', 'processing'])
 
             task = self.bulk.delay(body, current_user)
             self.add_task_to_user(task.id, 'transcribeWhisperX.bulk', current_user, 'msg')
