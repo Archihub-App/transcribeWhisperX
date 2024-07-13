@@ -44,6 +44,9 @@ class ExtendedPluginClass(PluginClass):
         
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
+
+        id_process = []
+
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -134,6 +137,10 @@ class ExtendedPluginClass(PluginClass):
             }
             update = RecordUpdate(**update)
             mongodb.update_record('records', {'_id': r['_id']}, update)
+            id_process.append(r['_id'])
+
+        # Registrar el log
+        register_log(user, log_actions['av_transcribe'], {'form': body, 'ids': id_process})
 
         instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
         instance.clear_cache()
