@@ -6,6 +6,8 @@ from app.api.records.models import RecordUpdate
 from celery import shared_task
 import os
 from bson.objectid import ObjectId
+from app.utils.LogActions import log_actions
+from app.api.logs.services import register_log
 from dotenv import load_dotenv
 from app.api.resources.services import update_cache as update_cache_resources
 from app.api.records.services import update_cache as update_cache_records
