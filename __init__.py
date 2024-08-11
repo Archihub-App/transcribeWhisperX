@@ -62,8 +62,9 @@ class ExtendedPluginClass(PluginClass):
             'processing.fileProcessing': {'$exists': True},
             '$or':[{'processing.fileProcessing.type': 'audio'}, {'processing.fileProcessing.type': 'video'}]
         }
+
         if body['overwrite']:
-            records_filters['processing.transcribeWhisperX'] = {'$exists': True}
+            records_filters = {"$or": [{"processing.fileProcessing": {"$exists": False}, **records_filters}, {"processing.fileProcessing": {"$exists": True}, **records_filters}]}
         else:
             records_filters['processing.transcribeWhisperX'] = {'$exists': False}
         
