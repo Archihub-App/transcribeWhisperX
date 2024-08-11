@@ -6,6 +6,8 @@ from app.api.records.models import RecordUpdate
 from celery import shared_task
 import os
 from bson.objectid import ObjectId
+from app.utils.LogActions import log_actions
+from app.api.logs.services import register_log
 from dotenv import load_dotenv
 import re
 
@@ -39,6 +41,9 @@ class ExtendedPluginClass(PluginClass):
         
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
+
+        id_process = []
+
         import torch
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -130,6 +135,10 @@ class ExtendedPluginClass(PluginClass):
             }
             update = RecordUpdate(**update)
             mongodb.update_record('records', {'_id': r['_id']}, update)
+            id_process.append(r['_id'])
+
+        # Registrar el log
+        register_log(user, log_actions['av_transcribe'], {'form': body, 'ids': id_process})
 
         instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
         instance.clear_cache()
