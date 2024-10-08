@@ -39,13 +39,16 @@ class ExtendedPluginClass(PluginClass):
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
+    def indexing(self, record):
+        pass
+        
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
 
         id_process = []
 
         import torch
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        device = 'cpu'
 
         filters = {
             'post_type': body['post_type']
@@ -185,6 +188,7 @@ plugin_info = {
                     {'value': 'small', 'label': 'Pequeño'},
                     {'value': 'medium', 'label': 'Mediano'},
                     {'value': 'large', 'label': 'Grande'},
+                    {'value': 'turbo', 'label': 'Turbo'},
                 ],
                 'required': False,
             },
