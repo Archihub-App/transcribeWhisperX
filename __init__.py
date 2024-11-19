@@ -54,12 +54,14 @@ class ExtendedPluginClass(PluginClass):
             'post_type': body['post_type']
         }
 
-        if body['parent'] and len(body['resources']) == 0:
-            filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
+        if 'parent' in body:
+            if body['parent'] and len(body['resources']) == 0:
+                filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
         
-        if body['resources']:
-            if len(body['resources']) > 0:
-                filters = {'_id': {'$in': [ObjectId(resource) for resource in body['resources']]}, **filters}
+        if 'resources' in body:
+            if body['resources']:
+                if len(body['resources']) > 0:
+                    filters = {'_id': {'$in': [ObjectId(resource) for resource in body['resources']]}, **filters}
             
         # obtenemos los recursos
         resources = list(mongodb.get_all_records('resources', filters, fields={'_id': 1}))
@@ -82,8 +84,10 @@ class ExtendedPluginClass(PluginClass):
             import whisper
             model = whisper.load_model(body['model'], device=device)
             if body['diarize']:
-                import whisperx
-                diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+                # import whisperx
+                # diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+                from pyannote.audio import Pipeline
+                diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",use_auth_token=HF_TOKEN)
 
         for r in records:
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
@@ -95,9 +99,19 @@ class ExtendedPluginClass(PluginClass):
 # 
             if body['diarize']:
                 try:
-                    diarize_segments = diarize_model(audio)
-                    result = whisperx.assign_word_speakers(diarize_segments, result)
-                except:
+                    print(result)
+                    from .utils import decode_audio
+                    audio = decode_audio(file_path, 16000)
+                    diarization_result = diarize_pipeline({
+                        'waveform': torch.from_numpy(audio[None, :]),
+                        'sample_rate': 16000
+                    })
+                    print(diarization_result)
+                    from pyannote_whisper.utils import diarize_text
+                    result = diarize_text(result, diarization_result)
+                    print(result)
+                except Exception as e:
+                    print(str(e))
                     pass
 
                 if 'speaker' in result['segments'][0]:
