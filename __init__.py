@@ -84,10 +84,10 @@ class ExtendedPluginClass(PluginClass):
             import whisper
             model = whisper.load_model(body['model'], device=device)
             if body['diarize']:
-                # import whisperx
-                # diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
-                from pyannote.audio import Pipeline
-                diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",use_auth_token=HF_TOKEN)
+                import whisperx
+                diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+                # from pyannote.audio import Pipeline
+                # diarize_pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",use_auth_token=HF_TOKEN)
 
         for r in records:
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
@@ -99,17 +99,8 @@ class ExtendedPluginClass(PluginClass):
 # 
             if body['diarize']:
                 try:
-                    print(result)
-                    from .utils import decode_audio
-                    audio = decode_audio(file_path, 16000)
-                    diarization_result = diarize_pipeline({
-                        'waveform': torch.from_numpy(audio[None, :]),
-                        'sample_rate': 16000
-                    })
-                    print(diarization_result)
-                    from pyannote_whisper.utils import diarize_text
-                    result = diarize_text(result, diarization_result)
-                    print(result)
+                    diarize_segments = diarize_model(audio)
+                    result = whisperx.assign_word_speakers(diarize_segments, result)
                 except Exception as e:
                     print(str(e))
                     pass
