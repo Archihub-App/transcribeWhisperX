@@ -48,7 +48,10 @@ class ExtendedPluginClass(PluginClass):
         id_process = []
 
         import torch
-        device = 'cpu'
+        if body['gpu']:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        else:
+            device = torch.device('cpu')
 
         filters = {
             'post_type': body['post_type']
@@ -180,6 +183,13 @@ plugin_info = {
                 'type': 'checkbox',
                 'label': 'Separar parlantes',
                 'id': 'diarize',
+                'default': False,
+                'required': False,
+            },
+            {
+                'type': 'checkbox',
+                'label': 'Usar GPU (si está disponible)',
+                'id': 'gpu',
                 'default': False,
                 'required': False,
             },
