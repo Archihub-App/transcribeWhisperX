@@ -39,6 +39,29 @@ class ExtendedPluginClass(PluginClass):
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
+        @self.route('/download', methods=['POST'])
+        @jwt_required()
+        def download():
+            current_user = get_jwt_identity()
+            body = request.get_json()
+
+            self.validate_fields(body, 'download')
+            self.validate_roles(current_user, ['admin', 'processing', 'editor'])
+
+            record = mongodb.get_record('records', {'_id': ObjectId(body['id'])})
+            if not record:
+                return {'msg': 'No se encontró el recurso'}, 404
+            
+            if 'transcribeWhisperX' in record['processing']:
+                result = record['processing']['transcribeWhisperX']['result']
+                if 'text' in result:
+                    text = result['text']
+                else:
+                    text = result['segments']
+                return {'text': text}, 200
+            else:
+                return {'msg': 'No se encontró la transcripción'}, 404
+        
     def indexing(self, record):
         pass
         
@@ -226,15 +249,19 @@ plugin_info = {
     'actions': [
         {
             'placement': 'detail_record',
-            'label': 'Transcribir con WhisperX',
+            'record_type': ['audio', 'video'],
+            'label': 'Transcribir con Whisper',
             'roles': ['admin', 'processing', 'editor'],
             'endpoint': 'bulk',
+            'icon': 'Transcribe'
         },
         {
             'placement': 'detail_record',
+            'record_type': ['audio', 'video'],
             'label': 'Descargar transcripción',
             'roles': ['admin', 'processing', 'editor'],
             'endpoint': 'download',
+            'icon': 'Download,Transcribe'
         }
     ]
 }
