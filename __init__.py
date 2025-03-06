@@ -21,8 +21,8 @@ batch_size = 16
 compute_type='float32'
 
 class ExtendedPluginClass(PluginClass):
-    def __init__(self, path, import_name, name, description, version, author, type, settings):
-        super().__init__(path, __file__, import_name, name, description, version, author, type, settings)
+    def __init__(self, path, import_name, name, description, version, author, type, settings, actions, capabilities=None):
+        super().__init__(path, __file__, import_name, name, description, version, author, type, settings, actions)
 
     def add_routes(self):
         @self.route('/bulk', methods=['POST'])
@@ -163,9 +163,6 @@ plugin_info = {
     'author': 'Néstor Andrés Peña',
     'type': ['bulk'],
     'settings': {
-        'settings': [
-
-        ],
         'settings_bulk': [
             {
                 'type':  'instructions',
@@ -225,5 +222,19 @@ plugin_info = {
                 'required': False,
             }
         ]
-    }
+    },
+    'actions': [
+        {
+            'placement': 'detail_record',
+            'label': 'Transcribir con WhisperX',
+            'roles': ['admin', 'processing', 'editor'],
+            'endpoint': 'bulk',
+        },
+        {
+            'placement': 'detail_record',
+            'label': 'Descargar transcripción',
+            'roles': ['admin', 'processing', 'editor'],
+            'endpoint': 'download',
+        }
+    ]
 }
