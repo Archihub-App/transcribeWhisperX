@@ -22,7 +22,7 @@ compute_type='float32'
 
 class ExtendedPluginClass(PluginClass):
     def __init__(self, path, import_name, name, description, version, author, type, settings, actions, capabilities=None):
-        super().__init__(path, __file__, import_name, name, description, version, author, type, settings, actions)
+        super().__init__(path, __file__, import_name, name, description, version, author, type, settings, actions = actions, capabilities = None)
 
     def add_routes(self):
         @self.route('/bulk', methods=['POST'])
@@ -253,7 +253,54 @@ plugin_info = {
             'label': 'Transcribir con Whisper',
             'roles': ['admin', 'processing', 'editor'],
             'endpoint': 'bulk',
-            'icon': 'Transcribe'
+            'icon': 'Transcribe',
+            'extraOpts': [
+                {
+                    'type': 'checkbox',
+                    'label': 'Separar parlantes',
+                    'id': 'diarize',
+                    'default': False,
+                    'required': False,
+                },
+                {
+                    'type': 'checkbox',
+                    'label': 'Usar GPU (si está disponible)',
+                    'id': 'gpu',
+                    'default': False,
+                    'required': False,
+                },
+                {
+                    'type': 'select',
+                    'label': 'Tamaño del modelo',
+                    'id': 'model',
+                    'default': 'small',
+                    'options': [
+                        {'value': 'tiny', 'label': 'Muy pequeño'},
+                        {'value': 'small', 'label': 'Pequeño'},
+                        {'value': 'medium', 'label': 'Mediano'},
+                        {'value': 'large', 'label': 'Grande'},
+                        {'value': 'turbo', 'label': 'Turbo'},
+                    ],
+                    'required': False,
+                },
+                {
+                    'type': 'select',
+                    'label': 'Idioma de la transcripción',
+                    'id': 'language',
+                    'default': 'auto',
+                    'options': [
+                        {'value': 'auto', 'label': 'Automático'},
+                        {'value': 'es', 'label': 'Español'},
+                        {'value': 'en', 'label': 'Inglés'},
+                        {'value': 'fr', 'label': 'Francés'},
+                        {'value': 'de', 'label': 'Alemán'},
+                        {'value': 'it', 'label': 'Italiano'},
+                        {'value': 'pt', 'label': 'Portugués'},
+                        
+                    ],
+                    'required': False,
+                }
+            ]
         },
         {
             'placement': 'detail_record',
@@ -261,7 +308,21 @@ plugin_info = {
             'label': 'Descargar transcripción',
             'roles': ['admin', 'processing', 'editor'],
             'endpoint': 'download',
-            'icon': 'Download,Transcribe'
+            'icon': 'Download,Transcribe',
+            'extraOpts': [
+                {
+                    'type': 'select',
+                    'label': 'Formato del archivo',
+                    'id': 'language',
+                    'default': 'auto',
+                    'options': [
+                        {'value': 'pdf', 'label': 'PDF'},
+                        {'value': 'doc', 'label': 'DOC'},
+                        {'value': 'srt', 'label': 'SRT'},
+                    ],
+                    'required': False,
+                }
+            ]
         }
     ]
 }
