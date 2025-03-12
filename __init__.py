@@ -141,7 +141,7 @@ class ExtendedPluginClass(PluginClass):
                 elif body['format'] == 'srt':
                     def millis_to_srt_time(millis):
                         # Convert millis to an integer
-                        millis = int(millis)
+                        millis = int(millis * 1000)
                         seconds, ms = divmod(millis, 1000)
                         minutes, sec = divmod(seconds, 60)
                         hours, minutes = divmod(minutes, 60)
