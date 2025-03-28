@@ -180,6 +180,9 @@ class ExtendedPluginClass(PluginClass):
             filters = {
                 'post_type': body['post_type']
             }
+            
+            if isinstance(body['post_type'], list):
+                filters['post_type'] = {'$in': body['post_type']}   
 
             if 'parent' in body:
                 if body['parent'] and len(body['resources']) == 0:
