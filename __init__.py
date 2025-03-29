@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask import request, send_file
 from app.utils import DatabaseHandler
 from app.api.records.models import RecordUpdate
-from celery import shared_task
+from celery import shared_task, current_task
 import os
 import shutil
 from bson.objectid import ObjectId
@@ -11,6 +11,9 @@ from app.utils.LogActions import log_actions
 from app.api.logs.services import register_log
 from dotenv import load_dotenv
 import re
+from datetime import datetime
+from df.enhance import enhance, init_df, load_audio, save_audio
+import ffmpeg
 
 load_dotenv()
 
@@ -167,7 +170,10 @@ class ExtendedPluginClass(PluginClass):
         
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
-
+        current_task.update_state(state='PROGRESS', meta={
+            'status': 'Iniciando procesamiento de transcripción',
+            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
         id_process = []
 
         import torch
@@ -186,7 +192,7 @@ class ExtendedPluginClass(PluginClass):
 
             if 'parent' in body:
                 if body['parent'] and len(body['resources']) == 0:
-                    filters = {'$or': [{'parents.id': body['parent'], 'post_type': body['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
+                    filters = {'$or': [{'parents.id': body['parent'], 'post_type': filters['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
             
             if 'resources' in body:
                 if body['resources']:
@@ -211,6 +217,11 @@ class ExtendedPluginClass(PluginClass):
             records_filters['processing.transcribeWhisperX'] = {'$exists': False}
         
         records = list(mongodb.get_all_records('records', records_filters, fields={'_id': 1, 'mime': 1, 'filepath': 1, 'processing': 1}))
+        
+        current_task.update_state(state='PROGRESS', meta={
+            'status': 'Cargando los modelos de transcripción',
+            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
 
         if len(records) > 0:
             import whisper
@@ -218,9 +229,49 @@ class ExtendedPluginClass(PluginClass):
             if body['diarize']:
                 import whisperx
                 diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+            if body['denoise']:
+                model_denoise, df_state, _ = init_df()
+                
+        current_task.update_state(state='PROGRESS', meta={
+            'status': 'Modelo cargado, procesando transcripción',
+            'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
 
         for r in records:
+            current_task.update_state(state='PROGRESS', meta={
+                'status': 'Procesando transcripción del audio: ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
+                'progress': (records.index(r) + 1) / len(records) * 100,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
+            
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
+            
+            if body['denoise']:
+                if r['mime'] != 'audio/wav':
+                    temporal_file_path = os.path.join(TEMPORAL_FILES_PATH, r['filepath'])
+                    temporal_file_path = os.path.splitext(temporal_file_path)[0] + '.wav'
+                    if not os.path.exists(os.path.dirname(temporal_file_path)):
+                        os.makedirs(os.path.dirname(temporal_file_path))
+                    
+                    try:
+                        (
+                            ffmpeg
+                            .input(file_path)
+                            .output(temporal_file_path, format='wav', acodec='pcm_s16le', ac=1, ar='48000')
+                            .overwrite_output()
+                            .run()
+                        )
+                    except Exception as e:
+                        raise Exception('Error al convertir el audio a WAV')
+                    
+                    audio, _ = load_audio(temporal_file_path, sr=df_state.sr())
+                    enhanced_audio = enhance(model_denoise, df_state, audio)
+                    save_audio(temporal_file_path, enhanced_audio, df_state.sr())
+                    file_path = temporal_file_path
+                    
+                else:
+                    file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
+            
             audio = whisper.load_audio(file_path)
             if body['language'] == 'auto':
                 result = model.transcribe(audio)
@@ -229,12 +280,18 @@ class ExtendedPluginClass(PluginClass):
 # 
             if body['diarize']:
                 try:
+                    current_task.update_state(state='PROGRESS', meta={
+                        'status': 'Procesando segmentación del audio: ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
+                        'progress': (records.index(r) + 1) / len(records) * 100,
+                        'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    })
                     diarize_segments = diarize_model(audio)
                     result = whisperx.assign_word_speakers(diarize_segments, result)
                 except Exception as e:
                     print(str(e))
                     pass
 
+                
                 if 'speaker' in result['segments'][0]:
                     current_speaker = result['segments'][0]['speaker']
                 else:
@@ -262,6 +319,16 @@ class ExtendedPluginClass(PluginClass):
 
                 result['text'] = text.replace('SPEAKER_', 'PERSONA_')
 
+            if body['denoise']:
+                if r['mime'] != 'audio/wav':
+                    os.remove(temporal_file_path)
+                    
+                    
+            current_task.update_state(state='PROGRESS', meta={
+                'status': 'Guardando procesamiento de ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
+                'progress': (records.index(r) + 1) / len(records) * 100,
+                'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            })
 
             update = {
                 'processing': r['processing']
@@ -280,7 +347,7 @@ class ExtendedPluginClass(PluginClass):
 
         instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
         instance.clear_cache()
-        return 'Transcripción automática finalizada'
+        return f'Se procesaron {len(records)} registros'
         
 general_settings = [
     {
@@ -289,6 +356,14 @@ general_settings = [
         'id': 'overwrite',
         'default': False,
         'required': False,
+    },
+    {
+        'type': 'checkbox',
+        'label': 'Limpiar audio con DeepFilterNet',
+        'id': 'denoise',
+        'default': False,
+        'required': False,
+        'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
     },
     {
         'type': 'checkbox',
