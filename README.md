@@ -1,6 +1,6 @@
 # Transcripción de voz a texto usando Whisper
 
-Este plugin permite transcribir audio a texto usando el modelo [Whisper de OpenAI](https://cdn.openai.com/papers/whisper.pdf). Para ello, se debe tener instalado ArchiHUB y configurar el plugin siguiendo los pasos en la [guía de instalación de un plugin](https://archihub-app.github.io/archihub.github.io/es/install_plugin/).
+Este plugin permite transcribir audio a texto usando el modelo [Whisper de OpenAI](https://cdn.openai.com/papers/whisper.pdf) y [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) para limpiar el audio. Para ello, se debe tener instalado ArchiHUB y configurar el plugin siguiendo los pasos en la [guía de instalación de un plugin](https://archihub-app.github.io/archihub.github.io/es/install_plugin/).
 
 ## Uso de GPU
 
