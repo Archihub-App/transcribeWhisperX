@@ -354,14 +354,14 @@ general_settings = [
         'default': False,
         'required': False,
     },
-    # {
-    #     'type': 'checkbox',
-    #     'label': 'Limpiar audio con DeepFilterNet',
-    #     'id': 'denoise',
-    #     'default': False,
-    #     'required': False,
-    #     'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
-    # },
+    {
+        'type': 'checkbox',
+        'label': 'Limpiar audio con DeepFilterNet',
+        'id': 'denoise',
+        'default': False,
+        'required': False,
+        'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
+    },
     {
         'type': 'checkbox',
         'label': 'Separar parlantes',
