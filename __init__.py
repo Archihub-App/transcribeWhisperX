@@ -188,7 +188,7 @@ class ExtendedPluginClass(PluginClass):
 
             if 'parent' in body:
                 if body['parent'] and len(body['resources']) == 0:
-                    filters = {'$or': [{'parents.id': body['parent'], 'post_type': filters['post_type']}, {'_id': ObjectId(body['parent'])}], **filters}
+                    filters = {'$or': [{'parents.id': body['parent'], 'post_type': filters['post_type']}, {'_id': ObjectId(body['parent'])}]}
             
             if 'resources' in body:
                 if body['resources']:
@@ -354,14 +354,14 @@ general_settings = [
         'default': False,
         'required': False,
     },
-    {
-        'type': 'checkbox',
-        'label': 'Limpiar audio con DeepFilterNet',
-        'id': 'denoise',
-        'default': False,
-        'required': False,
-        'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
-    },
+    # {
+    #     'type': 'checkbox',
+    #     'label': 'Limpiar audio con DeepFilterNet',
+    #     'id': 'denoise',
+    #     'default': False,
+    #     'required': False,
+    #     'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
+    # },
     {
         'type': 'checkbox',
         'label': 'Separar parlantes',
