@@ -12,7 +12,6 @@ from app.api.logs.services import register_log
 from dotenv import load_dotenv
 import re
 from datetime import datetime
-from df.enhance import enhance, init_df, load_audio, save_audio
 import ffmpeg
 
 load_dotenv()
@@ -164,10 +163,7 @@ class ExtendedPluginClass(PluginClass):
                     return '/' + user + '/transcribeWhisperX/' + str(r['_id']) + '.srt'
                 else:
                     raise Exception('Formato no válido')
-                    
-                    
-                
-        
+                          
     @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
     def bulk(body, user):
         current_task.update_state(state='PROGRESS', meta={
@@ -230,6 +226,7 @@ class ExtendedPluginClass(PluginClass):
                 import whisperx
                 diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
             if body['denoise']:
+                from df.enhance import enhance, init_df, load_audio, save_audio
                 model_denoise, df_state, _ = init_df()
                 
         current_task.update_state(state='PROGRESS', meta={
