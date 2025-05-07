@@ -224,7 +224,7 @@ class ExtendedPluginClass(PluginClass):
             model = whisper.load_model(body['model'], device=device)
             if body['diarize']:
                 import whisperx
-                diarize_model = whisperx.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
+                diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
             if body['denoise']:
                 from df.enhance import enhance, init_df, load_audio, save_audio
                 model_denoise, df_state, _ = init_df()
