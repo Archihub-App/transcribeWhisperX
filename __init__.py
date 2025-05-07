@@ -223,6 +223,7 @@ class ExtendedPluginClass(PluginClass):
             import whisper
             model = whisper.load_model(body['model'], device=device)
             if body['diarize']:
+                import whisperx
                 from whisperx import diarize
                 diarize_model = diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
             if body['denoise']:
