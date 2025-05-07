@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/nightly/cu121
 git+https://github.com/openai/whisper.git
 git+https://github.com/m-bain/whisperx.git
+https://raw.githubusercontent.com/PedroRuizCode/DeepFilterNet/main/DeepFilterNet/dist/deepfilternet-0.5.7rc0-py3-none-any.whl
 python-docx
-deepfilternet

@@ -227,7 +227,7 @@ class ExtendedPluginClass(PluginClass):
                 diarize_model = whisperx.diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
             if body['denoise']:
                 from df.enhance import enhance, init_df, load_audio, save_audio
-                model_denoise, df_state, _ = init_df()
+                model_denoise, df_state, sr, _ = init_df()
                 
         current_task.update_state(state='PROGRESS', meta={
             'status': 'Modelo cargado, procesando transcripción',
