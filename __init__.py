@@ -26,8 +26,8 @@ batch_size = 16
 compute_type='float32'
 
 class ExtendedPluginClass(PluginClass):
-    def __init__(self, path, import_name, name, description, version, author, type, settings, actions, capabilities=None):
-        super().__init__(path, __file__, import_name, name, description, version, author, type, settings, actions = actions, capabilities = None)
+    def __init__(self, path, import_name, name, description, version, author, type, settings, actions, capabilities=None, **kwargs):
+        super().__init__(path, __file__, import_name, name, description, version, author, type, settings, actions = actions, capabilities = None, **kwargs)
 
     def add_routes(self):
         @self.route('/bulk', methods=['POST'])
@@ -220,8 +220,11 @@ class ExtendedPluginClass(PluginClass):
         })
 
         if len(records) > 0:
+            print(body)
             import whisper
             model = whisper.load_model(body['model'], device=device)
+            
+            print('Modelo cargado')
             if body['diarize']:
                 import whisperx
                 from whisperx import diarize
