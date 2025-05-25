@@ -332,12 +332,14 @@ class ExtendedPluginClass(PluginClass):
             })
 
             update = {
-                'processing': r['processing']
+                'processing': r['processing'],
+                'updatedAt': datetime.now(),
+                'updatedBy': user if user else 'system'
             }
 
             update['processing']['transcribeWhisperX'] = {
                 'type': 'av_transcribe',
-                'result': result
+                'result': result,
             }
             update = RecordUpdate(**update)
             mongodb.update_record('records', {'_id': r['_id']}, update)
