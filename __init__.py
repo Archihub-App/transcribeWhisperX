@@ -330,12 +330,14 @@ class ExtendedPluginClass(PluginClass):
             })
 
             update = {
-                'processing': r['processing']
+                'processing': r['processing'],
+                'updatedAt': datetime.now(),
+                'updatedBy': user if user else 'system'
             }
 
             update['processing']['transcribeWhisperX'] = {
                 'type': 'av_transcribe',
-                'result': result
+                'result': result,
             }
             
             instance.update_data('records', str(r['_id']), update)
