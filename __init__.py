@@ -50,8 +50,6 @@ class ExtendedPluginClass(PluginClass):
             current_user = get_jwt_identity()
             body = request.get_json()
             
-            print(body)
-            
             self.validate_roles(current_user, ['admin', 'processing', 'editor'])
 
             task = self.download.delay(body, current_user)
@@ -173,6 +171,8 @@ class ExtendedPluginClass(PluginClass):
         id_process = []
 
         import torch
+        instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
+        
         if 'gpu' in body and body['gpu']:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         else:
@@ -220,11 +220,9 @@ class ExtendedPluginClass(PluginClass):
         })
 
         if len(records) > 0:
-            print(body)
             import whisper
             model = whisper.load_model(body['model'], device=device)
             
-            print('Modelo cargado')
             if body['diarize']:
                 import whisperx
                 from whisperx import diarize
@@ -339,14 +337,13 @@ class ExtendedPluginClass(PluginClass):
                 'type': 'av_transcribe',
                 'result': result
             }
-            update = RecordUpdate(**update)
-            mongodb.update_record('records', {'_id': r['_id']}, update)
+            
+            instance.update_data('records', str(r['_id']), update)
             id_process.append(r['_id'])
 
         # Registrar el log
         register_log(user, log_actions['av_transcribe'], {'form': body, 'ids': id_process})
 
-        instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
         instance.clear_cache()
         return f'Se procesaron {len(records)} registros'
         
