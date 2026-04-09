@@ -216,8 +216,17 @@ class ExtendedPluginClass(PluginClass):
             model = whisper.load_model(body['model'], device=device)
             
             if body['diarize']:
+<<<<<<< HEAD
                 from pyannote.audio import Pipeline
                 diarize_model = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", token=HF_TOKEN)
+=======
+                import whisperx
+                from whisperx import diarize
+                diarize_model = diarize.DiarizationPipeline(token=HF_TOKEN, device=device)
+            if body['denoise']:
+                from df.enhance import enhance, init_df, load_audio, save_audio
+                model_denoise, df_state, sr, _ = init_df()
+>>>>>>> e83bb414c20db935968f9719ef521194d117d6f4
                 
         current_task.update_state(state='PROGRESS', meta={
             'status': 'Modelos cargados, procesando registros',
