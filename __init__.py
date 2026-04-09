@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import re
 from datetime import datetime
 import ffmpeg
+import torch
 
 load_dotenv()
 
@@ -40,7 +41,7 @@ class ExtendedPluginClass(PluginClass):
             self.validate_roles(current_user, ['admin', 'processing'])
 
             task = self.bulk.delay(body, current_user)
-            self.add_task_to_user(task.id, 'transcribeWhisperX.bulk', current_user, 'msg')
+            self.add_task_to_user(task.id, 'transcribeWhisper.bulk', current_user, 'msg')
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
@@ -53,7 +54,7 @@ class ExtendedPluginClass(PluginClass):
             self.validate_roles(current_user, ['admin', 'processing', 'editor'])
 
             task = self.download.delay(body, current_user)
-            self.add_task_to_user(task.id, 'transcribeWhisperX.download', current_user, 'file_download')
+            self.add_task_to_user(task.id, 'transcribeWhisper.download', current_user, 'file_download')
             
             return {'msg': 'Se agregó la tarea a la fila de procesamientos'}, 201
         
@@ -67,7 +68,6 @@ class ExtendedPluginClass(PluginClass):
             
             # Buscar la tarea en la base de datos
             task = mongodb.get_record('tasks', {'taskId': taskId})
-            # Si la tarea no existe, retornar error
             if not task:
                 return {'msg': 'Tarea no existe'}, 404
             
@@ -91,7 +91,7 @@ class ExtendedPluginClass(PluginClass):
             return response
         
         
-    @shared_task(ignore_result=False, name='transcribeWhisperX.download')
+    @shared_task(ignore_result=False, name='transcribeWhisper.download')
     def download(body, user):
         records_filters = {'_id': {'$in': [ObjectId(record) for record in body['records']]}}
         
@@ -102,13 +102,13 @@ class ExtendedPluginClass(PluginClass):
         elif len(records) > 1:
             raise Exception('Debe seleccionar solo un registro')
         
-        folder_path = USER_FILES_PATH + '/' + user + '/transcribeWhisperX'
+        folder_path = USER_FILES_PATH + '/' + user + '/transcribeWhisper'
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         
         for r in records:
-            if 'transcribeWhisperX' in r['processing']:
-                result = r['processing']['transcribeWhisperX']['result']
+            if 'transcribeWhisper' in r['processing']:
+                result = r['processing']['transcribeWhisper']['result']
 
                 if body['format'] == 'doc':
                     from docx import Document
@@ -116,9 +116,9 @@ class ExtendedPluginClass(PluginClass):
                     title = r['displayName'] if 'displayName' in r else r['name']
                     doc.add_heading(title, 0)
                     doc.add_paragraph(result['text'])
-                    path = os.path.join(USER_FILES_PATH, user, 'transcribeWhisperX', str(r['_id']) + '.docx')
+                    path = os.path.join(USER_FILES_PATH, user, 'transcribeWhisper', str(r['_id']) + '.docx')
                     doc.save(path)
-                    return '/' + user + '/transcribeWhisperX/' + str(r['_id']) + '.docx'
+                    return '/' + user + '/transcribeWhisper/' + str(r['_id']) + '.docx'
                 elif body['format'] == 'pdf':
                     from docx import Document
                     doc = Document()
@@ -133,36 +133,36 @@ class ExtendedPluginClass(PluginClass):
                     except Exception as e:
                         raise Exception('Error al importar el módulo del plugin para el procesamiento de documentos: ' + str(e))
                     
-                    output_pdf = os.path.join(USER_FILES_PATH, user, 'transcribeWhisperX', str(r['_id']) + '.pdf')
+                    output_pdf = os.path.join(USER_FILES_PATH, user, 'transcribeWhisper', str(r['_id']) + '.pdf')
                     convert_to_pdf_with_libreoffice(temp_path, output_pdf)
                     shutil.move(os.path.join(TEMPORAL_FILES_PATH, str(r['_id']) + '.pdf'), output_pdf)
-                    os.remove(temp_path)
-                    return '/' + user + '/transcribeWhisperX/' + str(r['_id']) + '.pdf'
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                    return '/' + user + '/transcribeWhisper/' + str(r['_id']) + '.pdf'
                 elif body['format'] == 'srt':
                     def millis_to_srt_time(millis):
-                        # Convert millis to an integer
                         millis = int(millis * 1000)
                         seconds, ms = divmod(millis, 1000)
                         minutes, sec = divmod(seconds, 60)
                         hours, minutes = divmod(minutes, 60)
                         return f"{hours:02d}:{minutes:02d}:{sec:02d},{ms:03d}"
                     
-                    segments = result['segments']
+                    segments = result.get('segments', [])
                     srt = ''
                     for i, segment in enumerate(segments):
                         start_str = millis_to_srt_time(segment['start'])
                         end_str = millis_to_srt_time(segment['end'])
                         srt += str(i + 1) + '\n'
                         srt += start_str + ' --> ' + end_str + '\n'
-                        srt += segment['text'] + '\n\n'
-                    path = os.path.join(USER_FILES_PATH, user, 'transcribeWhisperX', str(r['_id']) + '.srt')
-                    with open(path, 'w') as f:
+                        srt += segment.get('speaker_tag', '') + segment['text'].strip() + '\n\n'
+                    path = os.path.join(USER_FILES_PATH, user, 'transcribeWhisper', str(r['_id']) + '.srt')
+                    with open(path, 'w', encoding='utf-8') as f:
                         f.write(srt)
-                    return '/' + user + '/transcribeWhisperX/' + str(r['_id']) + '.srt'
+                    return '/' + user + '/transcribeWhisper/' + str(r['_id']) + '.srt'
                 else:
                     raise Exception('Formato no válido')
                           
-    @shared_task(ignore_result=False, name='transcribeWhisperX.bulk', queue='high')
+    @shared_task(ignore_result=False, name='transcribeWhisper.bulk', queue='high')
     def bulk(body, user):
         current_task.update_state(state='PROGRESS', meta={
             'status': 'Iniciando procesamiento de transcripción',
@@ -170,8 +170,7 @@ class ExtendedPluginClass(PluginClass):
         })
         id_process = []
 
-        import torch
-        instance = ExtendedPluginClass('transcribeWhisperX','', **plugin_info)
+        instance = ExtendedPluginClass('transcribeWhisper','', **plugin_info)
         
         if 'gpu' in body and body['gpu']:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -179,23 +178,16 @@ class ExtendedPluginClass(PluginClass):
             device = torch.device('cpu')
 
         if 'records' not in body:
-            filters = {
-                'post_type': body['post_type']
-            }
-            
+            filters = {'post_type': body['post_type']}
             if isinstance(body['post_type'], list):
                 filters['post_type'] = {'$in': body['post_type']}   
 
-            if 'parent' in body:
-                if body['parent'] and len(body['resources']) == 0:
-                    filters = {'$or': [{'parents.id': body['parent'], 'post_type': filters['post_type']}, {'_id': ObjectId(body['parent'])}]}
+            if 'parent' in body and body['parent'] and len(body['resources']) == 0:
+                filters = {'$or': [{'parents.id': body['parent'], 'post_type': filters['post_type']}, {'_id': ObjectId(body['parent'])}]}
             
-            if 'resources' in body:
-                if body['resources']:
-                    if len(body['resources']) > 0:
-                        filters = {'_id': {'$in': [ObjectId(resource) for resource in body['resources']]}, **filters}
+            if 'resources' in body and body['resources'] and len(body['resources']) > 0:
+                filters = {'_id': {'$in': [ObjectId(resource) for resource in body['resources']]}, **filters}
                 
-            # obtenemos los recursos
             resources = list(mongodb.get_all_records('resources', filters, fields={'_id': 1}))
             resources = [str(resource['_id']) for resource in resources]
 
@@ -210,7 +202,7 @@ class ExtendedPluginClass(PluginClass):
         if 'overwrite' in body and body['overwrite']:
             records_filters = {"$or": [{"processing.fileProcessing": {"$exists": False}, **records_filters}, {"processing.fileProcessing": {"$exists": True}, **records_filters}]}
         else:
-            records_filters['processing.transcribeWhisperX'] = {'$exists': False}
+            records_filters['processing.transcribeWhisper'] = {'$exists': False}
         
         records = list(mongodb.get_all_records('records', records_filters, fields={'_id': 1, 'mime': 1, 'filepath': 1, 'processing': 1}))
         
@@ -224,59 +216,63 @@ class ExtendedPluginClass(PluginClass):
             model = whisper.load_model(body['model'], device=device)
             
             if body['diarize']:
-                import whisperx
-                from whisperx import diarize
-                diarize_model = diarize.DiarizationPipeline(use_auth_token=HF_TOKEN, device=device)
-            if body['denoise']:
-                from df.enhance import enhance, init_df, load_audio, save_audio
-                model_denoise, df_state, sr, _ = init_df()
+                from pyannote.audio import Pipeline
+                diarize_model = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1", token=HF_TOKEN)
                 
         current_task.update_state(state='PROGRESS', meta={
-            'status': 'Modelo cargado, procesando transcripción',
+            'status': 'Modelos cargados, procesando registros',
             'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
 
         for r in records:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             current_task.update_state(state='PROGRESS', meta={
-                'status': 'Procesando transcripción del audio: ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
+                'status': 'Procesando archivo: ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
                 'progress': (records.index(r) + 1) / len(records) * 100,
                 'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             })
             
             file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
+            temporal_file_path = None
             
-            if body['denoise']:
-                if r['mime'] != 'audio/wav':
-                    temporal_file_path = os.path.join(TEMPORAL_FILES_PATH, r['filepath'])
-                    temporal_file_path = os.path.splitext(temporal_file_path)[0] + '.wav'
-                    if not os.path.exists(os.path.dirname(temporal_file_path)):
-                        os.makedirs(os.path.dirname(temporal_file_path))
-                    
-                    try:
-                        (
-                            ffmpeg
-                            .input(file_path)
-                            .output(temporal_file_path, format='wav', acodec='pcm_s16le', ac=1, ar='48000')
-                            .overwrite_output()
-                            .run()
-                        )
-                    except Exception as e:
-                        raise Exception('Error al convertir el audio a WAV')
-                    
-                    audio, _ = load_audio(temporal_file_path, sr=df_state.sr())
-                    enhanced_audio = enhance(model_denoise, df_state, audio)
-                    save_audio(temporal_file_path, enhanced_audio, df_state.sr())
-                    file_path = temporal_file_path
-                    
-                else:
-                    file_path = os.path.join(ORIGINAL_FILES_PATH, r['filepath'])
+            # 1. Native FFmpeg Extraction & Denoising
+            # Always convert if not a wav, OR if denoise is explicitly requested
+            if r['mime'] != 'audio/wav' or body['denoise']:
+                temporal_file_path = os.path.join(TEMPORAL_FILES_PATH, str(r['_id']) + '.wav')
+                os.makedirs(os.path.dirname(temporal_file_path), exist_ok=True)
+                
+                # Apply native FFmpeg FFT noise reduction if checked
+                audio_filter = 'afftdn=nf=-25' if body['denoise'] else None
+                kwargs = {'format': 'wav', 'acodec': 'pcm_s16le', 'ac': 1, 'ar': '16000', 'vn': None}
+                
+                if audio_filter:
+                    kwargs['af'] = audio_filter
+                
+                try:
+                    import ffmpeg
+                    (
+                        ffmpeg
+                        .input(file_path)
+                        .output(temporal_file_path, **kwargs)
+                        .overwrite_output()
+                        .run(capture_stdout=True, capture_stderr=True)
+                    )
+                except ffmpeg.Error as e:
+                    error_msg = e.stderr.decode('utf8') if e.stderr else str(e)
+                    print(f"--- FFMPEG CRASH LOG ---\n{error_msg}\n------------------------")
+                    raise Exception('Error al extraer o limpiar el audio con FFmpeg. Revisa los logs.')
+                
+                file_path = temporal_file_path
             
+            # 2. Transcribe with standard Whisper
             audio = whisper.load_audio(file_path)
             if body['language'] == 'auto':
                 result = model.transcribe(audio)
             else:
                 result = model.transcribe(audio, language=body['language'])
-# 
+ 
+            # 3. Diarize using Pyannote (Overlap Matching logic)
             if body['diarize']:
                 try:
                     current_task.update_state(state='PROGRESS', meta={
@@ -284,44 +280,75 @@ class ExtendedPluginClass(PluginClass):
                         'progress': (records.index(r) + 1) / len(records) * 100,
                         'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                     })
-                    diarize_segments = diarize_model(audio)
-                    result = whisperx.assign_word_speakers(diarize_segments, result)
+                    
+                    # Safely load the waveform using soundfile
+                    import soundfile as sf
+                    data, sample_rate = sf.read(file_path)
+                    waveform = torch.from_numpy(data).float()
+                    if waveform.ndim == 1:
+                        waveform = waveform.unsqueeze(0)
+                    else:
+                        waveform = waveform.transpose(0, 1)
+                        
+                    # Support both pyannote 3.x and 4.x wrapper outputs
+                    diarization_output = diarize_model({"waveform": waveform, "sample_rate": sample_rate})
+                    if hasattr(diarization_output, "speaker_diarization"):
+                        diarization = diarization_output.speaker_diarization
+                    else:
+                        diarization = diarization_output
+
+                    # Match Pyannote tracks to Whisper segments by finding the max overlap
+                    for segment in result['segments']:
+                        seg_start = segment['start']
+                        seg_end = segment['end']
+                        speaker_counts = {}
+                        
+                        for turn, _, speaker in diarization.itertracks(yield_label=True):
+                            overlap_start = max(seg_start, turn.start)
+                            overlap_end = min(seg_end, turn.end)
+                            duration = overlap_end - overlap_start
+                            
+                            if duration > 0:
+                                speaker_counts[speaker] = speaker_counts.get(speaker, 0) + duration
+                                
+                        if speaker_counts:
+                            dominant_speaker = max(speaker_counts, key=speaker_counts.get)
+                            segment['speaker'] = dominant_speaker.replace('SPEAKER_', 'PERSONA_')
+                        else:
+                            segment['speaker'] = 'PERSONA_UNKNOWN'
+
                 except Exception as e:
-                    print(str(e))
+                    print(f"Error en diarización: {str(e)}")
                     pass
 
-                
-                if 'speaker' in result['segments'][0]:
-                    current_speaker = result['segments'][0]['speaker']
-                else:
-                    current_speaker = ''
-                text = current_speaker + ": " + result['segments'][0]['text']
+            # 4. Reconstruct clean text and handle speaker tags
+            final_text = ""
+            current_speaker = None
 
-                for segment in result['segments']:
-                    segment_text = segment['text']
-                    pattern = r'\s*(transcribed by.*|subtitles by.*|by.*\.com|by.*\.org|http.*|.com*)$'
-                    if re.search(pattern, segment_text):
-                        segment_text = ''
-                        segment['text'] = segment_text
-                    # si el segmento actual tiene el mismo speaker que el anterior
-                    if 'speaker' in segment:
-                        if segment['speaker'] == current_speaker:
-                            # sumar el texto del segmento actual al anterior
-                            text += ' ' + segment['text']
-                        else:
-                            # si no, actualizar el speaker actual
-                            current_speaker = segment['speaker']
-                            # y agregar el nuevo texto
-                            text += '\n\n' + current_speaker + ": " + segment['text']
+            for segment in result['segments']:
+                segment_text = segment['text']
+                # Clean up hallucinated whisper text
+                pattern = r'^\s*(transcribed by.*|subtitles by.*|by.*\.com|by.*\.org|http.*|.com*)$'
+                if re.search(pattern, segment_text, re.IGNORECASE):
+                    segment['text'] = ''
+                    continue
+
+                if body['diarize'] and 'speaker' in segment:
+                    if segment['speaker'] != current_speaker:
+                        current_speaker = segment['speaker']
+                        # Add speaker label to final text block
+                        final_text += f'\n\n{current_speaker}: {segment_text}'
+                        # Tag the segment for the SRT generator to prepend
+                        segment['speaker_tag'] = f"[{current_speaker}] " 
                     else:
-                        text += ' ' + segment['text']
+                        final_text += ' ' + segment_text
+                else:
+                    final_text += ' ' + segment_text
 
-                result['text'] = text.replace('SPEAKER_', 'PERSONA_')
+            result['text'] = final_text.strip()
 
-            if body['denoise']:
-                if r['mime'] != 'audio/wav':
-                    os.remove(temporal_file_path)
-                    
+            if temporal_file_path and os.path.exists(temporal_file_path):
+                os.remove(temporal_file_path)
                     
             current_task.update_state(state='PROGRESS', meta={
                 'status': 'Guardando procesamiento de ' + str(records.index(r) + 1) + ' de ' + str(len(records)),
@@ -335,7 +362,7 @@ class ExtendedPluginClass(PluginClass):
                 'updatedBy': user if user else 'system'
             }
 
-            update['processing']['transcribeWhisperX'] = {
+            update['processing']['transcribeWhisper'] = {
                 'type': 'av_transcribe',
                 'result': result,
             }
@@ -343,9 +370,7 @@ class ExtendedPluginClass(PluginClass):
             instance.update_data('records', str(r['_id']), update)
             id_process.append(r['_id'])
 
-        # Registrar el log
         register_log(user, log_actions['av_transcribe'], {'form': body, 'ids': id_process})
-
         instance.clear_cache()
         return f'Se procesaron {len(records)} registros'
         
@@ -359,15 +384,15 @@ general_settings = [
     },
     {
         'type': 'checkbox',
-        'label': 'Limpiar audio con DeepFilterNet',
+        'label': 'Limpiar audio de fondo (FFmpeg)',
         'id': 'denoise',
         'default': False,
         'required': False,
-        'instructions': 'Si el audio original está en un formato diferente a WAV, se convertirá a WAV y se limpiará el audio con DeepFilterNet. Si el audio original ya está en WAV, no se convertirá y se limpiará el audio con DeepFilterNet.',
+        'instructions': 'Si el audio tiene ruido de fondo estático, se filtrará usando el reductor FFT nativo de FFmpeg antes de transcribir.',
     },
     {
         'type': 'checkbox',
-        'label': 'Separar parlantes',
+        'label': 'Separar parlantes (Pyannote)',
         'id': 'diarize',
         'default': False,
         'required': False,
@@ -381,7 +406,7 @@ general_settings = [
     },
     {
         'type': 'select',
-        'label': 'Tamaño del modelo',
+        'label': 'Tamaño del modelo Whisper',
         'id': 'model',
         'default': 'turbo',
         'options': [
@@ -414,9 +439,9 @@ general_settings = [
 ]
     
 plugin_info = {
-    'name': 'Transcripción automática',
-    'description': 'Plugin para la transcripción automática de audios y videos usando el modelo WhisperX',
-    'version': '0.1',
+    'name': 'Transcripción Whisper',
+    'description': 'Plugin para la transcripción automática usando Whisper y separación de audio con Pyannote.',
+    'version': '0.2',
     'author': 'Néstor Andrés Peña',
     'type': ['bulk'],
     'settings': {
@@ -424,7 +449,7 @@ plugin_info = {
             {
                 'type':  'instructions',
                 'title': 'Instrucciones',
-                'text': 'Este plugin permite la transcripción automática de audios y videos usando el modelo WhisperX. Para ello, debe seleccionar el tipo de contenido y el recurso padre. El plugin procesará todos los archivos de audio y video de los recursos hijos del recurso padre seleccionado. Si el recurso padre no está seleccionado, el plugin procesará todos los archivos de audio y video de todos los recursos del tipo de contenido seleccionado.',
+                'text': 'Este plugin procesará todos los archivos de audio y video de los recursos hijos del recurso padre seleccionado. Utiliza Whisper para el texto y Pyannote para la separación de canales.',
             },
             *general_settings
         ]
