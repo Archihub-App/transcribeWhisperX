@@ -1,2 +1,29 @@
-git+https://github.com/openai/whisper.git
+# Dependencies this plugin adds on top of the backend's own.
+#
+# Installed as a separate layer at image build time - see the plugin install
+# notes. Anything already required by the backend (fastapi, celery, pymongo,
+# bson) is NOT repeated here.
+#
+# A VCS requirement carries #egg=<distribution> so the declared name can be
+# checked against what the code imports. Without it the distribution name is
+# not derivable from the URL and nothing can verify the declaration.
+
+# Speech recognition.
+git+https://github.com/openai/whisper.git#egg=openai-whisper
+
+# Whisper's runtime. Install the CUDA build separately if the deployment has a
+# GPU; this plugin runs on CPU when `gpu` is off or no device is present.
+torch
+
+# Speaker separation. Needs a Hugging Face token in HF_TOKEN, and the
+# pyannote/speaker-diarization-3.1 model requires accepting its licence.
+pyannote.audio
+
+# Reads the decoded waveform that is handed to the diarisation pipeline.
+soundfile
+
+# DOCX export, and the intermediate for PDF export.
 python-docx
+
+# SYSTEM PACKAGE, not installable from here: this plugin shells out to
+# `ffmpeg` to decode media to 16 kHz mono WAV. The image must provide it.
